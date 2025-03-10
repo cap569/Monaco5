@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Zenith</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs/loader.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body, html {
+      width: 100%;
+      height: 100%;
+      font-family: Arial, sans-serif;
+      background-color: #151515;
+      color: #DDE6E8;
+      overflow: hidden;
+      user-select: text;
+    }
+
+    #loading-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: #151515;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-direction: column;
+      z-index: 1005;
+      opacity: 1;
+      transition: opacity 0.5s ease;
+    }
+
+    #loading-screen.hidden {
+      opacity: 0;
+    }
+
+    #loading-icon {
+      width: 100px;
+      height: 100px;
+      margin-bottom: 20px;
+    }
+
+    #loading-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    .spinner {
+      border: 3px solid #BDC3C8;
+      border-top: 6px solid transparent;
+      border-radius: 50%;
+      width: 30px;
+      height: 30px;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    #title-bar {
+      height: 40px;
+      background-color: #151515;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      border-bottom: 1px solid #2a2a2a;
+      -webkit-app-region: drag;
+      position: relative;
+      user-select: text;
+    }
+
+    #title-icon {
+      width: 24px;
+      height: 24px;
+      margin-right: 10px;
+      flex-shrink: 0;
+    }
+
+    #title-icon svg {
+      width: 100%;
+      height: 100%;
+    }
+
+    #main-window {
+      display: flex;
+      flex-direction: column;
+      height: calc(100% - 40px);
+      background-color: #1a1a1a;
+    }
+
+    #tabs {
+      display: flex;
+      align-items: center;
+      background-color: #151515;
+      padding: 5px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      position: relative;
+      border-bottom: 1px solid #2a2a2a;
+    }
+
+    ::-webkit-scrollbar-thumb {
+      border-radius: 5px;
+      background: #BDC3C8;
+    }
+
+    ::-webkit-scrollbar {
+      width: 5px;
+      height: 3px;
+    }
+
+    ::-webkit-scrollbar-button {
+      width: 5px;
+      height: 3px;
+    }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      background-color: #151515;
+      padding: 8px 12px;
+      margin-right: 5px;
+      border: 1px solid #1a1a1a;
+      border-radius: 4px;
+      width: 100px;
+      min-width: 100px;
+      max-width: 100px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      transition: background-color 0.3s, border-color 0.3s, transform 0.3s, opacity 0.3s;
+      position: relative;
+      cursor: pointer;
+      animation: slideInTab 0.3s;
+    }
+
+    .tab.removing {
+      animation: slideOutTab 0.3s forwards;
+    }
+
+    @keyframes slideInTab {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideOutTab {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+    }
+
+    .tab.active {
+      background-color: #1a1a1a;
+      border-color: #3a3a3a;
+    }
+
+    .tab:hover {
+      background-color: #2a2a2a;
+    }
+
+    .tab-title {
+      margin-right: 12px;
+      color: #DDE6E8;
+      flex-grow: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      z-index: 1;
+      position: relative;
+    }
+
+    .close-tab {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      width: 20px;
+      height: 20px;
+      position: absolute;
+      top: 50%;
+      right: 5px;
+      transform: translateY(-50%);
+      z-index: 2;
+      overflow: hidden;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+      flex-shrink: 0;
+    }
+
+    .close-tab:hover {
+      background-color: transparent;
+    }
+
+    .close-tab svg.default {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.3s;
+      opacity: 1;
+    }
+
+    .close-tab svg.hover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+
+    .close-tab:hover svg.hover {
+      opacity: 1;
+    }
+
+    #add-tab-button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 5px;
+      transition: background-color 0.3s;
+      border-radius: 4px;
+      position: relative;
+      overflow: hidden;
+      width: 24px;
+      height: 24px;
+      flex-shrink: 0;
+    }
+
+    #add-tab-button:hover {
+      background-color: transparent;
+    }
+
+    #add-tab-button svg.default {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.3s;
+      opacity: 1;
+    }
+
+    #add-tab-button svg.hover {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      transition: opacity 0.3s;
+      opacity: 0;
+    }
+
+    #add-tab-button:hover svg.hover {
+      opacity: 1;
+    }
+
+    #editor-container {
+      position: relative;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+    }
+
+    .editor-wrapper {
+      flex-grow: 1;
+      display: none;
+    }
+
+    .editor-wrapper.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .editor {
+      flex-grow: 1;
+      width: 100%;
+    }
+    #add-tab-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background-color: #1a1a1a;
+      padding: 30px;
+      border: 1px solid #2a2a2a;
+      border-radius: 8px;
+      display: none;
+      z-index: 1000;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      animation: fadeIn 0.3s;
+      width: 300px;
+      transition: opacity 0.3s, visibility 0.3s;
+      user-select: text;
+    }
+
+    #add-tab-popup.active {
+      display: block;
+      opacity: 1;
+    }
+
+    #add-tab-popup.hidden {
+      opacity: 0;
+      visibility: hidden;
+    }
+
+    #add-tab-popup h2 {
+      margin-bottom: 10px;
+      color: #DDE6E8;
+      text-align: center;
+    }
+
+    #add-tab-popup input {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 15px;
+      border: 1px solid #2a2a2a;
+      border-radius: 4px;
+      background-color: #151515;
+      color: #DDE6E8;
+      font-size: 16px;
+    }
+
+    #add-tab-popup button {
+      width: 100%;
+      padding: 10px 0;
+      background-color: #2a2a2a;
+      border: none;
+      border-radius: 4px;
+      color: #DDE6E8;
+      cursor: pointer;
+      font-size: 16px;
+      transition: background-color 0.3s;
+    }
+
+    #add-tab-popup button:hover {
+      background-color: #3a3a3a;
+    }
+
+    #error-message {
+      color: red;
+      margin-top: 10px;
+      display: none;
+      font-size: 14px;
+      text-align: center;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    @keyframes fadeOutModal {
+      from {
+        opacity: 1;
+        transform: scale(1);
+      }
+      to {
+        opacity: 0;
+        transform: scale(0.8);
+      }
+    }
+
+    .editable {
+      border: 1px solid #3a3a3a;
+      background-color: #2a2a2a;
+      color: #DDE6E8;
+      padding: 2px 4px;
+      border-radius: 4px;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    #custom-context-menu {
+      position: absolute;
+      background-color: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      display: none;
+      z-index: 1001;
+      width: 150px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+    }
+
+    #custom-context-menu ul {
+      list-style: none;
+    }
+
+    #custom-context-menu li {
+      padding: 10px;
+      cursor: pointer;
+      transition: background-color 0.2s;
+      color: #DDE6E8;
+      position: relative;
+    }
+
+    #custom-context-menu li:hover:not(.disabled) {
+      background-color: #3a3a3a;
+    }
+
+    #custom-context-menu li.disabled {
+      color: #7f8c8d;
+      cursor: default;
+    }
+
+    #toast-container {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 10px;
+      z-index: 1002;
+    }
+
+    .toast {
+      min-width: 250px;
+      max-width: 350px;
+      background-color: #2a2a2a;
+      color: #DDE6E8;
+      padding: 10px 15px;
+      border-radius: 4px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      opacity: 0;
+      transform: translateY(100%);
+      animation: slideIn 0.5s forwards;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .toast.success {
+      border-left: 5px solid #90ee90;
+    }
+
+    .toast.error {
+      border-left: 5px solid #f08080;
+    }
+
+    .toast.warning {
+      border-left: 5px solid #f0e68c;
+    }
+
+    .toast.info {
+      border-left: 5px solid #87cefa;
+    }
+
+    .toast.question {
+      min-width: 300px;
+      background-color: #1a1a1a;
+      border-left: 5px solid #6c757d;
+    }
+
+    .toast .message {
+      flex: 1;
+      margin-right: 10px;
+      word-wrap: break-word;
+      max-height: 100px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .toast .close-btn {
+      background: none;
+      border: none;
+      color: #DDE6E8;
+      cursor: pointer;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(100%);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes slideOut {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(100%);
+      }
+    }
+
+    #question-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1003;
+    }
+
+    #question-popup {
+      background-color: #1a1a1a;
+      padding: 20px 25px;
+      border: 1px solid #2a2a2a;
+      border-radius: 6px;
+      box-shadow: 0 4px 8px rgba(0,0,0,0.5);
+      width: 300px;
+      max-width: 90%;
+      animation: fadeIn 0.3s;
+      position: relative;
+      user-select: text;
+    }
+
+    #question-popup p {
+      margin-bottom: 20px;
+      color: #DDE6E8;
+    }
+
+    #question-popup .buttons {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    #question-popup .buttons button {
+      padding: 8px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+
+    #question-popup .buttons .confirm-btn {
+      background-color: #28a745;
+      color: #fff;
+    }
+
+    #question-popup .buttons .confirm-btn:hover {
+      background-color: #218838;
+    }
+
+    #question-popup.hidden {
+      animation: fadeOutModal 0.3s forwards;
+    }
+
+    @media (max-width: 600px) {
+      .toast {
+        min-width: 200px;
+        max-width: 250px;
+      }
+
+      #add-tab-popup {
+        width: 90%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="loading-screen">
+    <div id="loading-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+        <path d="M0 0 C10.89336697 10.17451534 16.66451919 22.99261902 17.5546875 37.765625 C17.57261725 52.46801707 13.34651474 64.99184077 3.55859375 75.96875 C3.03652344 76.58363281 2.51445312 77.19851562 1.9765625 77.83203125 C-7.1357897 87.83123038 -20.07131298 93.08039282 -33.39453125 93.96484375 C-47.62196462 93.98308405 -60.67325171 90.47262729 -71.44140625 80.96875 C-72.18132812 80.34484375 -72.92125 79.7209375 -73.68359375 79.078125 C-84.75867126 69.00987272 -89.56066076 55.31929604 -90.40234375 40.58984375 C-90.56254648 25.739051 -84.99515249 13.10355364 -75.00390625 2.34375 C-74.15828125 1.56 -73.31265625 0.77625 -72.44140625 -0.03125 C-71.95285156 -0.51335937 -71.46429688 -0.99546875 -70.9609375 -1.4921875 C-50.95913148 -20.21121736 -19.79915144 -16.472894 0 0 Z " fill="#DDE6E8" transform="translate(164.44140625,88.03125)"/>
+        <path d="M0 0 C2.42973996 1.92490609 4.77874833 3.90659368 7.11328125 5.9453125 C8.06332031 6.67878906 9.01335937 7.41226563 9.9921875 8.16796875 C13.82361418 11.35495845 16.61541167 15.2607883 19.55078125 19.2578125 C32.08338037 36.17455365 45.13747174 47.03999462 66.55078125 50.4453125 C67.84886719 50.620625 69.14695313 50.7959375 70.484375 50.9765625 C75.05888227 52.1977442 76.87203715 53.51688409 80.11328125 56.9453125 C80.875 59.4453125 80.875 59.4453125 80.80078125 61.9453125 C80.80464844 62.7703125 80.80851563 63.5953125 80.8125 64.4453125 C79.79042727 68.09965076 78.0541444 69.58867451 75.11328125 71.9453125 C71.72265625 73.24609375 71.72265625 73.24609375 67.86328125 74.2578125 C48.32694801 79.82372588 32.44702998 89.60838014 19.61328125 105.4453125 C6.47215098 121.59201012 -10.92990183 133.68261161 -31.88671875 136.9453125 C-53.73306611 138.70986283 -74.48598229 135.26309373 -91.75 120.87109375 C-98.10523736 115.14324728 -103.78894908 109.24461977 -108.88671875 102.3828125 C-122.25145322 84.55366043 -139.57300136 76.75601904 -161.109375 72.94921875 C-164.62484257 71.67850825 -165.85422952 70.02941449 -167.88671875 66.9453125 C-169.39570326 62.74171278 -168.68815742 59.9771038 -166.88671875 55.9453125 C-163.31270325 50.92984323 -157.83601086 50.26120004 -152.19921875 48.7578125 C-131.36102701 42.76248053 -116.8892342 33.58838597 -104.1484375 15.9296875 C-79.86793811 -16.10882983 -32.80700068 -23.35112633 0 0 Z M-89.63671875 17.1328125 C-102.99459176 31.62045587 -108.1436695 48.12184624 -107.3671875 67.58984375 C-106.17713955 84.439364 -97.96739193 98.35974888 -85.88671875 109.9453125 C-70.04076528 122.93089417 -53.02989745 126.8492668 -32.88671875 124.9453125 C-16.50540052 122.26089435 -1.77151889 112.37039888 7.92578125 99.0078125 C18.14994038 83.41897694 21.76012616 67.09734489 18.72216797 48.55859375 C15.08173397 32.08736086 4.70621246 17.69520951 -9.35546875 8.47265625 C-36.07956141 -7.65252929 -66.64821729 -3.74180377 -89.63671875 17.1328125 Z " fill="#DDE6E8" transform="translate(171.88671875,66.0546875)"/>
+      </svg>
+    </div>
+    <div class="spinner"></div>
+  </div>
+
+  <div id="overlay"></div>
+
+  <div id="add-tab-popup">
+    <h2>Add New Tab</h2>
+    <input type="text" id="tab-name-input" placeholder="Tab Name" />
+    <button id="submit-tab">Submit</button>
+    <div id="error-message">Tab name cannot be empty or just spaces.</div>
+  </div>
+
+  <div id="custom-context-menu">
+    <ul>
+      <li id="context-back">Back</li>
+      <li id="context-forward" class="disabled">Forward</li>
+      <li id="context-refresh">Refresh</li>
+    </ul>
+  </div>
+
+  <div id="title-bar">
+    <div id="title-icon">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+        <path d="M0 0 C10.89336697 10.17451534 16.66451919 22.99261902 17.5546875 37.765625 C17.57261725 52.46801707 13.34651474 64.99184077 3.55859375 75.96875 C3.03652344 76.58363281 2.51445312 77.19851562 1.9765625 77.83203125 C-7.1357897 87.83123038 -20.07131298 93.08039282 -33.39453125 93.96484375 C-47.62196462 93.98308405 -60.67325171 90.47262729 -71.44140625 80.96875 C-72.18132812 80.34484375 -72.92125 79.7209375 -73.68359375 79.078125 C-84.75867126 69.00987272 -89.56066076 55.31929604 -90.40234375 40.58984375 C-90.56254648 25.739051 -84.99515249 13.10355364 -75.00390625 2.34375 C-74.15828125 1.56 -73.31265625 0.77625 -72.44140625 -0.03125 C-71.95285156 -0.51335937 -71.46429688 -0.99546875 -70.9609375 -1.4921875 C-50.95913148 -20.21121736 -19.79915144 -16.472894 0 0 Z " fill="#DDE6E8" transform="translate(164.44140625,88.03125)"/>
+        <path d="M0 0 C2.42973996 1.92490609 4.77874833 3.90659368 7.11328125 5.9453125 C8.06332031 6.67878906 9.01335937 7.41226563 9.9921875 8.16796875 C13.82361418 11.35495845 16.61541167 15.2607883 19.55078125 19.2578125 C32.08338037 36.17455365 45.13747174 47.03999462 66.55078125 50.4453125 C67.84886719 50.620625 69.14695313 50.7959375 70.484375 50.9765625 C75.05888227 52.1977442 76.87203715 53.51688409 80.11328125 56.9453125 C80.875 59.4453125 80.875 59.4453125 80.80078125 61.9453125 C80.80464844 62.7703125 80.80851563 63.5953125 80.8125 64.4453125 C79.79042727 68.09965076 78.0541444 69.58867451 75.11328125 71.9453125 C71.72265625 73.24609375 71.72265625 73.24609375 67.86328125 74.2578125 C48.32694801 79.82372588 32.44702998 89.60838014 19.61328125 105.4453125 C6.47215098 121.59201012 -10.92990183 133.68261161 -31.88671875 136.9453125 C-53.73306611 138.70986283 -74.48598229 135.26309373 -91.75 120.87109375 C-98.10523736 115.14324728 -103.78894908 109.24461977 -108.88671875 102.3828125 C-122.25145322 84.55366043 -139.57300136 76.75601904 -161.109375 72.94921875 C-164.62484257 71.67850825 -165.85422952 70.02941449 -167.88671875 66.9453125 C-169.39570326 62.74171278 -168.68815742 59.9771038 -166.88671875 55.9453125 C-163.31270325 50.92984323 -157.83601086 50.26120004 -152.19921875 48.7578125 C-131.36102701 42.76248053 -116.8892342 33.58838597 -104.1484375 15.9296875 C-79.86793811 -16.10882983 -32.80700068 -23.35112633 0 0 Z M-89.63671875 17.1328125 C-102.99459176 31.62045587 -108.1436695 48.12184624 -107.3671875 67.58984375 C-106.17713955 84.439364 -97.96739193 98.35974888 -85.88671875 109.9453125 C-70.04076528 122.93089417 -53.02989745 126.8492668 -32.88671875 124.9453125 C-16.50540052 122.26089435 -1.77151889 112.37039888 7.92578125 99.0078125 C18.14994038 83.41897694 21.76012616 67.09734489 18.72216797 48.55859375 C15.08173397 32.08736086 4.70621246 17.69520951 -9.35546875 8.47265625 C-36.07956141 -7.65252929 -66.64821729 -3.74180377 -89.63671875 17.1328125 Z " fill="#DDE6E8" transform="translate(171.88671875,66.0546875)"/>
+      </svg>
+    </div>
+
+          <path d="M6 6l12 12M18 6L6 18" stroke="#BDC3C8" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+        <svg class="hover" viewBox="0 0 24 24">
+          <path d="M6 6l12 12M18 6L6 18" stroke="#DDE6E8" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="main-window">
+    <div id="tabs">
+      <button id="add-tab-button" title="Add Tab">
+        <svg class="default" viewBox="0 0 24 24">
+          <path d="M11.75 3a.75.75 0 0 1 .743.648l.007.102.001 7.25h7.253a.75.75 0 0 1 .102 1.493l-.102.007h-7.253l.002 7.25a.75.75 0 0 1-1.493.101l-.007-.102-.002-7.249H3.752a.75.75 0 0 1-.102-1.493L3.752 11h7.25L11 3.75a.75.75 0 0 1 .75-.75Z" fill="#BDC3C8"/>
+        </svg>
+        <svg class="hover" viewBox="0 0 24 24">
+          <path d="M11.75 3a.75.75 0 0 1 .743.648l.007.102.001 7.25h7.253a.75.75 0 0 1 .102 1.493l-.102.007h-7.253l.002 7.25a.75.75 0 0 1-1.493.101l-.007-.102-.002-7.249H3.752a.75.75 0 0 1-.102-1.493L3.752 11h7.25L11 3.75a.75.75 0 0 1 .75-.75Z" fill="#DDE6E8"/>
+        </svg>
+      </button>
+    </div>
+
+    <div id="editor-container">
+      <div class="editor-buttons">
+        <div class="editor-buttons-left">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container"></div>
+
+  <div id="question-modal">
+    <div id="question-popup">
+      <p>Are you sure you want to close this tab?</p>
+      <div class="buttons">
+        <button class="confirm-btn" id="confirm-close">Yes</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.34.1/min/vs' }});
+    require(['vs/editor/editor.main'], function() {
+      monaco.editor.defineTheme('zenith-dark', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [],
+        colors: {
+          'editor.background': '#151515',
+          'editor.foreground': '#DDE6E8',
+          'editorLineNumber.foreground': '#555555',
+          'editorCursor.foreground': '#DDE6E8',
+          'editor.selectionBackground': '#264F78',
+          'editor.inactiveSelectionBackground': '#3A3A3A'
+        }
+      });
+
+      monaco.editor.setTheme('zenith-dark');
+
+      let tabIdCounter = 0;
+      const tabsContainer = document.getElementById('tabs');
+      const addTabButton = document.getElementById('add-tab-button');
+      const addTabPopup = document.getElementById('add-tab-popup');
+      const submitTabButton = document.getElementById('submit-tab');
+      const tabNameInput = document.getElementById('tab-name-input');
+      const editorContainer = document.getElementById('editor-container');
+      const errorMessage = document.getElementById('error-message');
+      const overlay = document.getElementById('overlay');
+      const customContextMenu = document.getElementById('custom-context-menu');
+      const contextBack = document.getElementById('context-back');
+      const contextForward = document.getElementById('context-forward');
+      const contextRefresh = document.getElementById('context-refresh');
+      const toastContainer = document.getElementById('toast-container');
+      const questionModal = document.getElementById('question-modal');
+      const questionPopup = document.getElementById('question-popup');
+      const confirmCloseBtn = document.getElementById('confirm-close');
+      const loadingScreen = document.getElementById('loading-screen');
+
+      let currentTab = null;
+      const editors = {};
+
+      let tabToClose = null;
+
+      function debounce(func, delay) {
+        let debounceTimer;
+        return function() {
+          const context = this;
+          const args = arguments;
+          clearTimeout(debounceTimer);
+          debounceTimer = setTimeout(() => func.apply(context, args), delay);
+        };
+      }
+
+      function createTab(name, content = '--[[\n Hello, Welcome To NovaX! \n NovaX On Top! ]]') {
+        const tabId = `tab-${tabIdCounter++}`;
+
+        const tab = document.createElement('div');
+        tab.classList.add('tab');
+        tab.setAttribute('data-tab-id', tabId);
+
+        const title = document.createElement('div');
+        title.classList.add('tab-title');
+        title.textContent = name || `Tab ${tabIdCounter}`;
+        title.setAttribute('data-original-title', name || `Tab ${tabIdCounter}`);
+
+        title.addEventListener('dblclick', (e) => {
+          e.stopPropagation();
+          enableTabRenaming(tab, title);
+        });
+
+        const closeTabBtn = document.createElement('button');
+        closeTabBtn.classList.add('close-tab');
+        closeTabBtn.innerHTML = `
+          <svg class="default" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="m4.397 4.554.073-.084a.75.75 0 0 1 .976-.073l.084.073L12 10.939l6.47-6.47a.75.75 0 1 1 1.06 1.061L13.061 12l6.47 6.47a.75.75 0 0 1 .072.976l-.073.084a.75.75 0 0 1-.976.073l-.084-.073L12 13.061l-6.47 6.47a.75.75 0 0 1-1.06-1.061L10.939 12l-6.47-6.47a.75.75 0 0 1-.072-.976l.073-.084Z" fill="#BDC3C8"/>
+          </svg>
+          <svg class="hover" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+            <path d="m4.397 4.554.073-.084a.75.75 0 0 1 .976-.073l.084.073L12 10.939l6.47-6.47a.75.75 0 1 1 1.06 1.061L13.061 12l6.47 6.47a.75.75 0 0 1 .072.976l-.073.084a.75.75 0 0 1-.976.073l-.084-.073L12 13.061l-6.47 6.47a.75.75 0 0 1-1.06-1.061L10.939 12l-6.47-6.47a.75.75 0 0 1-.072-.976l.073-.084Z" fill="#DDE6E8"/>
+          </svg>
+        `;
+        closeTabBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          initiateTabClose(tabId);
+        });
+
+        tab.appendChild(title);
+        tab.appendChild(closeTabBtn);
+
+        tab.addEventListener('click', () => {
+          switchTab(tabId);
+        });
+
+        tabsContainer.insertBefore(tab, addTabButton);
+
+        const editorWrapper = document.createElement('div');
+        editorWrapper.classList.add('editor-wrapper');
+        editorWrapper.setAttribute('id', `editor-wrapper-${tabId}`);
+
+        const editorDiv = document.createElement('div');
+        editorDiv.classList.add('editor');
+        editorDiv.setAttribute('id', `editor-${tabId}`);
+
+        editorWrapper.appendChild(editorDiv);
+        editorContainer.insertBefore(editorWrapper, editorContainer.firstChild);
+
+        try {
+          editors[tabId] = monaco.editor.create(editorDiv, {
+            value: content,
+            language: 'lua',
+            theme: 'zenith-dark',
+            automaticLayout: true
+          });
+
+          editors[tabId].onDidChangeModelContent(debounce(saveTabs, 500));
+
+          editors[tabId].onDidEncounterModelLanguageChanged(() => {
+            showToast('An unexpected language change occurred.', 'error');
+          });
+
+          editors[tabId].onDidChangeModelDecorations(() => {
+          });
+
+          editors[tabId].addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => {
+          });
+
+          editorDiv.addEventListener('keydown', (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+              e.preventDefault();
+              showToast('Save shortcut (Ctrl+S) is disabled.', 'warning');
+            }
+          });
+
+          editors[tabId].onDidChangeModelContent(() => {
+          });
+
+        } catch (error) {
+          console.error('Monaco Editor initialization error:', error);
+          showToast('An error occurred while initializing the editor.', 'error');
+        }
+
+        saveTabs();
+
+        switchTab(tabId);
+
+        tabsContainer.scrollTo({ left: tabsContainer.scrollWidth, behavior: 'smooth' });
+      }
+
+      function enableTabRenaming(tab, title) {
+        const originalName = title.textContent;
+        title.innerHTML = '';
+        const input = document.createElement('input');
+        input.type = 'text';
+        input.value = originalName;
+        input.classList.add('editable');
+        title.appendChild(input);
+        input.focus();
+
+        input.select();
+
+        function finalizeRenaming() {
+          const newName = input.value.trim();
+          if (newName === '') {
+            alert('Tab name cannot be empty or just spaces.');
+            input.focus();
+            return;
+          }
+          title.textContent = newName;
+          title.setAttribute('data-original-title', newName);
+          saveTabs();
+          showToast(`Tab renamed to "${newName}".`, 'success');
+        }
+
+        input.addEventListener('blur', finalizeRenaming);
+        input.addEventListener('keypress', (e) => {
+          if (e.key === 'Enter') {
+            finalizeRenaming();
+          }
+        });
+      }
+
+      function switchTab(tabId) {
+        if (currentTab === tabId) return;
+
+        document.querySelectorAll('.tab').forEach(t => {
+          t.classList.remove('active');
+          t.style.borderColor = '#1a1a1a';
+          t.style.backgroundColor = '#151515';
+        });
+
+        const activeTab = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+        if (activeTab) {
+          activeTab.classList.add('active');
+          activeTab.style.backgroundColor = '#1a1a1a';
+          activeTab.style.borderColor = '#3a3a3a';
+        }
+
+        document.querySelectorAll('.editor-wrapper').forEach(wrapper => wrapper.classList.remove('active'));
+
+        const currentEditorWrapper = document.getElementById(`editor-wrapper-${tabId}`);
+        if (currentEditorWrapper) {
+          currentEditorWrapper.classList.add('active');
+          editors[tabId].layout();
+          currentTab = tabId;
+        } else {
+          console.error(`Editor wrapper for ${tabId} not found.`);
+        }
+
+        updateForwardButtonState();
+      }
+
+      function initiateTabClose(tabId) {
+        tabToClose = tabId;
+        showQuestionModal('Are you sure you want to close this tab?');
+      }
+
+      function closeTab(tabId) {
+        const tabElement = document.querySelector(`.tab[data-tab-id="${tabId}"]`);
+        if (tabElement) {
+          tabElement.classList.add('removing');
+          tabElement.style.animation = 'slideOutTab 0.3s forwards';
+          setTimeout(() => {
+            tabElement.remove();
+          }, 300);
+        }
+
+        if (editors[tabId]) {
+          editors[tabId].dispose();
+          delete editors[tabId];
+        }
+
+        const editorWrapper = document.getElementById(`editor-wrapper-${tabId}`);
+        if (editorWrapper) {
+          editorWrapper.remove();
+        }
+
+        saveTabs();
+
+        if (currentTab === tabId) {
+          const remainingTabs = document.querySelectorAll('.tab');
+          if (remainingTabs.length > 0) {
+            const newTabId = remainingTabs[remainingTabs.length - 1].getAttribute('data-tab-id');
+            switchTab(newTabId);
+          } else {
+            currentTab = null;
+          }
+        }
+
+        showToast('Tab closed successfully.', 'info');
+      }
+
+      addTabButton.addEventListener('click', () => {
+        overlay.style.display = 'block';
+        addTabPopup.style.display = 'block';
+        addTabPopup.classList.add('active');
+        tabNameInput.focus();
+      });
+
+      submitTabButton.addEventListener('click', () => {
+        const name = tabNameInput.value.trim();
+        if (name === '') {
+          errorMessage.style.display = 'block';
+          return;
+        }
+        errorMessage.style.display = 'none';
+        createTab(name);
+        tabNameInput.value = '';
+        addTabPopup.classList.remove('active');
+        addTabPopup.classList.add('hidden');
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          addTabPopup.style.display = 'none';
+          overlay.style.display = 'none';
+          addTabPopup.classList.remove('hidden');
+          overlay.style.opacity = '1';
+        }, 300);
+      });
+
+      tabNameInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+          submitTabButton.click();
+        }
+      });
+
+      overlay.addEventListener('click', () => {
+        addTabPopup.classList.remove('active');
+        addTabPopup.classList.add('hidden');
+        overlay.style.opacity = '0';
+        setTimeout(() => {
+          addTabPopup.style.display = 'none';
+          overlay.style.display = 'none';
+          addTabPopup.classList.remove('hidden');
+          overlay.style.opacity = '1';
+          errorMessage.style.display = 'none';
+        }, 300);
+      });
+
+      addTabPopup.addEventListener('click', (e) => {
+        e.stopPropagation();
+      });
+
+      function initializeTabs() {
+        const savedTabs = JSON.parse(localStorage.getItem('zenith-tabs') || '[]');
+        if (savedTabs.length > 0) {
+          savedTabs.forEach(tab => {
+            createTab(tab.name, tab.content);
+          });
+        }
+      }
+
+      function saveTabs() {
+        const tabs = [];
+        document.querySelectorAll('.tab').forEach(tab => {
+          const tabId = tab.getAttribute('data-tab-id');
+          const titleElem = tab.querySelector('.tab-title');
+          const title = titleElem.textContent;
+          const editorWrapper = document.getElementById(`editor-wrapper-${tabId}`);
+          const editor = editorWrapper && editors[tabId] ? editors[tabId].getValue() : '-- Lua Script';
+          tabs.push({ id: tabId, name: title, content: editor });
+        });
+        localStorage.setItem('zenith-tabs', JSON.stringify(tabs));
+      }
+
+      function setupTabTitleListeners() {
+        document.addEventListener('click', () => {
+          saveTabs();
+        });
+      }
+
+      function initializeCustomContextMenu() {
+        document.addEventListener('contextmenu', (e) => {
+          e.preventDefault();
+          showCustomContextMenu(e.clientX, e.clientY);
+        });
+
+        document.addEventListener('click', () => {
+          customContextMenu.style.display = 'none';
+        });
+
+        contextBack.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.history.back();
+          customContextMenu.style.display = 'none';
+          showToast('Navigated back.', 'info');
+        });
+
+        contextForward.addEventListener('click', (e) => {
+          if (!contextForward.classList.contains('disabled')) {
+            e.stopPropagation();
+            window.history.forward();
+            customContextMenu.style.display = 'none';
+            showToast('Navigated forward.', 'info');
+          }
+        });
+
+        contextRefresh.addEventListener('click', (e) => {
+          e.stopPropagation();
+          window.location.reload();
+          customContextMenu.style.display = 'none';
+        });
+
+        window.addEventListener('popstate', updateForwardButtonState);
+        updateForwardButtonState();
+      }
+
+      function showCustomContextMenu(x, y) {
+        const menu = customContextMenu;
+        const menuWidth = menu.offsetWidth;
+        const menuHeight = menu.offsetHeight;
+        const windowWidth = window.innerWidth;
+        const windowHeight = window.innerHeight;
+
+        if (x + menuWidth > windowWidth) {
+          x = windowWidth - menuWidth - 10;
+        }
+        if (y + menuHeight > windowHeight) {
+          y = windowHeight - menuHeight - 10;
+        }
+
+        menu.style.top = `${y}px`;
+        menu.style.left = `${x}px`;
+        menu.style.display = 'block';
+      }
+
+      function updateForwardButtonState() {
+        if (canGoForward()) {
+          contextForward.classList.remove('disabled');
+        } else {
+          contextForward.classList.add('disabled');
+        }
+      }
+
+      function canGoForward() {
+        return sessionStorage.getItem('canGoForward') === 'true';
+      }
+
+      function trackNavigation() {
+        window.addEventListener('popstate', () => {
+          sessionStorage.setItem('canGoForward', 'true');
+        });
+
+        sessionStorage.setItem('canGoForward', 'false');
+      }
+
+      function initialize() {
+        initializeTabs();
+        setupTabTitleListeners();
+        initializeCustomContextMenu();
+        trackNavigation();
+        tabsContainer.addEventListener('wheel', (e) => {
+          e.preventDefault();
+          tabsContainer.scrollLeft += e.deltaY;
+        });
+        setTimeout(() => {
+          hideLoadingScreen();
+        }, 1500);
+
+        window.addEventListener('load', () => {
+          setTimeout(() => {
+            hideLoadingScreen();
+          }, 1500);
+        });
+      }
+
+      function hideLoadingScreen() {
+        loadingScreen.classList.add('hidden');
+
+        loadingScreen.addEventListener('transitionend', () => {
+          loadingScreen.style.visibility = 'hidden';
+        }, { once: true });
+      }
+
+      initialize();
+
+      function showToast(message, type = 'info') {
+        const toast = document.createElement('div');
+        toast.classList.add('toast', type);
+
+        const msg = document.createElement('div');
+        msg.classList.add('message');
+        msg.textContent = message;
+
+        toast.appendChild(msg);
+
+        if (type !== 'question') {
+          const closeBtn = document.createElement('button');
+          closeBtn.classList.add('close-btn');
+          closeBtn.innerHTML = '&times;';
+          closeBtn.addEventListener('click', () => {
+            removeToast(toast);
+          });
+          toast.appendChild(closeBtn);
+        }
+
+        toastContainer.appendChild(toast);
+
+        if (type !== 'question') {
+          setTimeout(() => {
+            removeToast(toast);
+          }, 5000);
+        }
+      }
+
+      function removeToast(toast) {
+        toast.style.animation = 'slideOut 0.5s forwards';
+        setTimeout(() => {
+          toast.remove();
+        }, 500);
+      }
+
+      function showQuestionModal(message) {
+        questionPopup.querySelector('p').textContent = message;
+        questionModal.style.display = 'flex';
+      }
+
+      function hideQuestionModal() {
+        questionPopup.style.animation = 'fadeOutModal 0.3s forwards';
+        setTimeout(() => {
+          questionModal.style.display = 'none';
+          questionPopup.style.animation = 'fadeIn 0.3s forwards';
+        }, 300);
+      }
+
+      confirmCloseBtn.addEventListener('click', () => {
+        if (tabToClose) {
+          closeTab(tabToClose);
+          tabToClose = null;
+          hideQuestionModal();
+        }
+      });
+
+      questionModal.addEventListener('click', (e) => {
+        if (e.target === questionModal) {
+          tabToClose = null;
+          hideQuestionModal();
+        }
+      });
+    });
+  </script>
+</body>
+</html>
